@@ -21,7 +21,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 @router.post('/register', response_model=UserResponse)
 async def register(user: RegisterUser,res: Response, db: AsyncSession = Depends(get_db)):
-    user_db = (await db.execute(select(User).where(User.username == user.username))).scalars().first()
+    user_db = (await db.execute(select(User).where(User.username == user.username, User.email == user.email))).scalars().first()
 
     if user_db:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='User already register')
@@ -43,5 +43,30 @@ async def register(user: RegisterUser,res: Response, db: AsyncSession = Depends(
 
     set_cookie(res, key='access', value=access_token)
     set_cookie(res, key='refresh', value=refresh_token)
+
+    return user_db
+
+
+@router.post('/login', response_model=UserResponse)
+async def login(user: LoginUser, res: Response, db: AsyncSession = Depends(get_db)):
+    user_db = (await db.execute(select(User).where(User.username == user.username))).scalars().first()
+
+    if not user_db or user_db is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='User is not found')
+    
+    if not verify_password(user.password, user_db.password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Username or password is not correct')
+    
+    payload = {
+        'id': user_db.id,
+        'username':user_db.username,
+        'email': user_db.email 
+    }
+
+    access_token = encode_token(payload=payload, SECRET_KEY=SECRET_KEY, algoritm=ALGORITM, type='access', exp=10)
+    refresh_token = encode_token(payload=payload, SECRET_KEY=SECRET_KEY, algoritm=ALGORITM, type='refresh', exp=1440)
+
+    set_cookie(res, value=access_token, key='access')
+    set_cookie(res, value=refresh_token, key='refresh')
 
     return user_db
