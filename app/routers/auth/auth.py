@@ -89,3 +89,11 @@ async def get_access_token(request: Request, res: Response):
     set_cookie(res=res, value=access_token, key='access')
 
     return {'message': 'Success'}
+
+
+@router.delete('/logout')
+async def log_out(res: Response):
+    res.delete_cookie(path='/', key='access')
+    res.delete_cookie(path='/', key='refresh')
+
+    return {'message': 'Success'}
