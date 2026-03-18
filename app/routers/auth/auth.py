@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.config import SECRET_KEY, ALGORITM
+from app.core.config import SECRET_KEY, ALGORITM, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 from app.models.user.user import User
 from app.schemas.auth.auth import RegisterUser, LoginUser, UserResponse
 from app.services.token import encode_token, verify_token
@@ -9,9 +9,21 @@ from app.services.cookies import set_cookie
 from app.db.session import get_db
 from passlib.context import CryptContext
 import bcrypt
+from authlib.integrations.starlette_client import OAuth
 
 
 router = APIRouter()
+
+oauth = OAuth()
+
+oauth.register(
+    name="google",
+    client_id=GOOGLE_CLIENT_ID,
+    client_secret=GOOGLE_CLIENT_SECRET,
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={"scope": "openid email profile"},
+)
+
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -70,6 +82,43 @@ async def login(user: LoginUser, res: Response, db: AsyncSession = Depends(get_d
     set_cookie(res, value=refresh_token, key='refresh')
 
     return user_db
+
+@router.get('/google')
+async def google_login(request: Request):
+    redirect_uri = 'http://127.0.0.1:8024/auth/google/callback'
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+@router.get('/google/callback')
+async def google_callback(request: Request,res: Response, db: AsyncSession = Depends(get_db)):
+    token = await oauth.google.authorize_access_token(request)
+    user_info = token['userinfo']
+
+    email = user_info['email']
+    username = user_info['email'].split('@')[0]
+    provider = 'google'
+    provider_id = user_info['sub']
+
+    user = ( await db.execute(select(User).where(User.provider == provider, User.provider_id == provider_id))).scalars().first()
+
+    if not user:
+        user = User(username=username, email=email, password=None, provider=provider, provider_id=provider_id)
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    payload = {
+        'id': user.id,
+        'username':user.username,
+        'email': user.email 
+    }
+
+    access_token = encode_token(payload=payload, SECRET_KEY=SECRET_KEY, algoritm=ALGORITM, type='access', exp=10)
+    refresh_token = encode_token(payload=payload, SECRET_KEY=SECRET_KEY, algoritm=ALGORITM, type='refresh', exp=1440)
+
+    set_cookie(res=res, value=access_token, key='access')
+    set_cookie(res=res, value=refresh_token, key='refresh')
+
+    return user
 
 @router.get('/refresh')
 async def get_access_token(request: Request, res: Response):
