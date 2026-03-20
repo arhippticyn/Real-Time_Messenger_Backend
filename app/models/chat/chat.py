@@ -13,7 +13,7 @@ class Chat(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     type: Mapped[ChatType] = mapped_column(Enum(ChatType))
     title: Mapped[str | None] = mapped_column(String(60), nullable=True)
-    participants: Mapped[list['User']] = relationship(
+    participants: Mapped[list['User'] | None] = relationship(
         'User',
         secondary='chatparticipant',
         back_populates='chats'
