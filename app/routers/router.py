@@ -3,6 +3,7 @@ from .auth.auth import router as auth_router
 from .profile.profile import router as profile_router
 from .users.users import router as users_router
 from .chats.chats import router as chats_router
+from .message.message import router as message_router
 
 router = APIRouter()
 
@@ -29,3 +30,5 @@ router.include_router(
     prefix='/chats',
     tags=['Chats']
 )
+
+router.include_router(router=message_router, prefix='/message', tags=['Messages'])

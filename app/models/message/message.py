@@ -3,6 +3,7 @@ from sqlalchemy import String, Enum, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from ...db.base import Base
 import enum
+from datetime import datetime
 
 class MessageType(str, enum.Enum):
     text = 'text'
@@ -17,7 +18,7 @@ class Message(Base):
     content: Mapped[str | None] = mapped_column(nullable=True)
     type: Mapped[MessageType] = mapped_column(Enum(MessageType))
     file_url: Mapped[str | None] = mapped_column()
-    created_at: Mapped[DateTime] = mapped_column(default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     sender: Mapped['User'] = relationship('User', foreign_keys=[sender_id])
     chat: Mapped['Chat'] = relationship('Chat', foreign_keys=[chat_id])
