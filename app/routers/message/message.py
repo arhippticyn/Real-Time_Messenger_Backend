@@ -65,3 +65,15 @@ async def remake_message(chat_id: int, id: int, new_content: str, user: User = D
     await db.refresh(message)
 
     return message
+
+@router.delete('/{chat_id}/message/{id}')
+async def delete_message(chat_id: int, id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    message = (await db.execute(select(Message).where(Message.chat_id == chat_id, Message.id == id, Message.sender_id == user.id))).scalars().first()
+
+    if not message:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='message not found')
+    
+    await db.delete(message)
+    await db.commit()
+
+    return {'message': 'Success'}
