@@ -11,6 +11,8 @@ from app.models.chat.chat import Chat
 from app.models.chat.chatParticant import ChatParticipant
 from app.models.message.message import Message
 from app.models.message.message_status import MessageStatus
+import ssl
+
 
 config = context.config
 
@@ -18,6 +20,16 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+
+ssl_context = ssl.create_default_context()
+
+connectable = async_engine_from_config(
+    config.get_section(config.config_ini_section, {}),
+    prefix="sqlalchemy.",
+    poolclass=pool.NullPool,
+    connect_args={"ssl": ssl_context}
+)
+
 
 
 def run_migrations_offline() -> None:
