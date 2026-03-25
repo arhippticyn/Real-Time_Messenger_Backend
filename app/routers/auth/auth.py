@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 import app.models
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.config import SECRET_KEY, ALGORITM, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+from app.core.config import SECRET_KEY, ALGORITM, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, DEBUG, FRONTEND_URL
 from app.models.user.user import User
 from app.schemas.auth.auth import RegisterUser, LoginUser, UserResponse
 from app.services.token import encode_token, verify_token
@@ -86,7 +87,11 @@ async def login(user: LoginUser, res: Response, db: AsyncSession = Depends(get_d
 
 @router.get('/google')
 async def google_login(request: Request):
-    redirect_uri = 'http://127.0.0.1:8024/auth/google/callback'
+    redirect_uri = None
+    if DEBUG:
+        redirect_uri = 'http://127.0.0.1:8024/auth/google/callback'
+    else:
+        redirect_uri = 'https://echo-bj2n.onrender.com'
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 @router.get('/google/callback', response_model=UserResponse)
@@ -98,6 +103,14 @@ async def google_callback(request: Request,res: Response, db: AsyncSession = Dep
     username = user_info['email'].split('@')[0]
     provider = 'google'
     provider_id = user_info['sub']
+
+    user_local_provider = (await db.execute(select(User).where(User.provider == 'local', User.email == email))).scalars().first()
+
+    if user_local_provider:
+        if DEBUG:
+            return RedirectResponse(url=FRONTEND_URL)
+        else:
+            return RedirectResponse(url='')
 
     user = ( await db.execute(select(User).where(User.provider == provider, User.provider_id == provider_id))).scalars().first()
 
@@ -116,10 +129,14 @@ async def google_callback(request: Request,res: Response, db: AsyncSession = Dep
     access_token = encode_token(payload=payload, SECRET_KEY=SECRET_KEY, algoritm=ALGORITM, type='access', exp=10)
     refresh_token = encode_token(payload=payload, SECRET_KEY=SECRET_KEY, algoritm=ALGORITM, type='refresh', exp=1440)
 
-    set_cookie(res=res, value=access_token, key='access')
-    set_cookie(res=res, value=refresh_token, key='refresh')
+    if DEBUG:
+        redirect = RedirectResponse(url=f'{FRONTEND_URL}/home')
+    # else:
+    #     redirect = RedirectResponse(url=f'{FRONTEND_URL_DEPLOY}/home')
 
-    return user
+    set_cookie(redirect, access_token, refresh_token)
+
+    return redirect
 
 @router.get('/refresh')
 async def get_access_token(request: Request, res: Response):
