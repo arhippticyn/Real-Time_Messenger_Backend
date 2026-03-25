@@ -15,8 +15,5 @@ else:
 SessionLocal = async_sessionmaker(bind=engine,class_=AsyncSession, expire_on_commit=False)
 
 async def get_db():
-    db = SessionLocal()
-    try:
+    async with SessionLocal() as db: 
         yield db
-    finally:
-        db.close()
