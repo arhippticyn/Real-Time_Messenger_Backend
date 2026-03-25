@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
 from sqlalchemy import select
+import app.models
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import SECRET_KEY, ALGORITM, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 from app.models.user.user import User
@@ -39,7 +40,7 @@ async def register(user: RegisterUser,res: Response, db: AsyncSession = Depends(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='User already register')
 
    
-    user_db = User(username=user.username, email=user.email, password=hash_password(user.password), provider='local', provider_id=user.username)
+    user_db = User(username=user.username, email=user.email, password=hash_password(user.password), provider='local', provider_id=user.username, is_online=True)
     db.add(user_db)
     await db.commit()
     await db.refresh(user_db)
@@ -88,7 +89,7 @@ async def google_login(request: Request):
     redirect_uri = 'http://127.0.0.1:8024/auth/google/callback'
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
-@router.get('/google/callback')
+@router.get('/google/callback', response_model=UserResponse)
 async def google_callback(request: Request,res: Response, db: AsyncSession = Depends(get_db)):
     token = await oauth.google.authorize_access_token(request)
     user_info = token['userinfo']
@@ -101,7 +102,7 @@ async def google_callback(request: Request,res: Response, db: AsyncSession = Dep
     user = ( await db.execute(select(User).where(User.provider == provider, User.provider_id == provider_id))).scalars().first()
 
     if not user:
-        user = User(username=username, email=email, password=None, provider=provider, provider_id=provider_id)
+        user = User(username=username, email=email, password=None, provider=provider, provider_id=provider_id, is_online=True)
         db.add(user)
         await db.commit()
         await db.refresh(user)

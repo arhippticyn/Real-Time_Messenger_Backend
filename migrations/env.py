@@ -7,7 +7,10 @@ from sqlalchemy import pool
 from alembic import context
 from app.db.base import Base
 from app.models.user.user import User
-
+from app.models.chat.chat import Chat
+from app.models.chat.chatParticant import ChatParticipant
+from app.models.message.message import Message
+from app.models.message.message_status import MessageStatus
 
 config = context.config
 
