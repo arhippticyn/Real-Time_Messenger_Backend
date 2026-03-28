@@ -8,5 +8,5 @@ ALGORITM = os.getenv('ALGORITM')
 SECRET_KEY = os.getenv('SECRET_KEY')
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
-DEBUG = os.getenv('DEBUG')
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 FRONTEND_URL = os.getenv('FRONTEND_URL')
