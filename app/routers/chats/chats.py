@@ -64,16 +64,20 @@ async def get_all_chats(user: User = Depends(get_current_user), db: AsyncSession
             "type": chat.type,
             "title": chat.title,
             "participants": participants_list,
-            "interlocutor_name": None # По умолчанию
+            "interlocutor_name": None 
         }
 
-        if chat.type == ChatType.private: 
-            interlocutor = next((p for p in chat.participants if p.id != user.id), None)
-            if interlocutor:
-                chat_dict["interlocutor_name"] = interlocutor.username
-            else:
-                chat_dict["interlocutor_name"] = "Saved Messages (You)"
+        interlocutor_name = "Deleted User" 
 
+        if chat.type == "private" or chat.type == ChatType.private:
+             others = [p for p in chat.participants if p.id != user.id]
+             if others:
+                interlocutor_name = others[0].username
+             elif len(chat.participants) > 0:
+                 interlocutor_name = f"{chat.participants[0].username} (You)"
+
+        chat_dict["interlocutor_name"] = interlocutor_name
+ 
         response_data.append(chat_dict)
 
     return response_data
