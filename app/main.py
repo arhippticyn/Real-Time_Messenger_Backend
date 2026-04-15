@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 import app.db.models
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from .routers.router import router
 from starlette.middleware.sessions import SessionMiddleware
@@ -26,6 +27,8 @@ app.add_middleware(
 )
 
 app.include_router(router=router)
+
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 @app.get('/')

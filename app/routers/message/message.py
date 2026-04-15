@@ -17,17 +17,42 @@ router = APIRouter()
 async def get_messages(chat_id: int, db: AsyncSession = Depends(get_db)):
     return ( await db.execute(select(Message).where(Message.chat_id == chat_id))).scalars().all()
 
-@router.post('/{chat_id}/upload')
-async def upload_file(chat_id: int, file: UploadFile = File(...)):
+async def upload_file(
+    chat_id: int, 
+    file: UploadFile = File(...), 
+    user: User = Depends(get_current_user), 
+    db: AsyncSession = Depends(get_db)
+):
+    # 1. Сохраняем файл
     folder = f'uploads/{chat_id}'
     os.makedirs(folder, exist_ok=True)
-
     file_path = f'{folder}/{file.filename}'
 
     with open(file_path, 'wb') as f:
         shutil.copyfileobj(file.file, f)    
 
-    return {'file_url': file_path}
+    new_message = Message(
+        chat_id=chat_id,
+        sender_id=user.id,
+        type=MessageType.image,  
+        file_url=f"/{file_path}", 
+        created_at=datetime.utcnow()
+    )
+    
+    db.add(new_message)
+    await db.commit()
+    await db.refresh(new_message)
+
+    broadcast_data = {
+        'id': new_message.id,
+        'sender_id': new_message.sender_id,
+        'type': 'image',
+        'file_url': new_message.file_url,
+        'created_at': str(new_message.created_at)
+    }
+    await manager.broadcast(chat_id, broadcast_data)
+
+    return broadcast_data
 
 
 @router.websocket('/ws/{chat_id}')
